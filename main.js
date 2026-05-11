@@ -370,7 +370,7 @@ async function postApi(path, payload) {
   const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
   const bases = configuredBase
     ? [configuredBase]
-    : ['', 'http://localhost:5000'];
+    : ['', 'https://aether-grand-backend.onrender.com'];
 
   let lastError;
   for (const base of bases) {
