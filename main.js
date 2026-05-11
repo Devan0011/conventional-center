@@ -355,7 +355,7 @@ function initForms() {
       saved.push({ ...payload, createdAt: new Date().toISOString() });
       localStorage.setItem('aetherRfpRequests', JSON.stringify(saved));
       form.reset();
-      status.textContent = 'Request saved locally. Start the backend API to submit it to the dashboard.';
+      status.textContent = 'Request saved locally. Connect the backend API to submit it to the dashboard.';
     } finally {
       submit.disabled = false;
     }
@@ -363,14 +363,10 @@ function initForms() {
 
   window.submitRfpRequest = handleSubmit;
   form.addEventListener('submit', handleSubmit);
-  form.querySelector('button[type="submit"]')?.addEventListener('click', handleSubmit);
 }
 
 async function postApi(path, payload) {
-  const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
-  const bases = configuredBase
-    ? [configuredBase]
-    : ['', 'https://aether-grand-backend.onrender.com'];
+  const bases = getApiBases();
 
   let lastError;
   for (const base of bases) {
@@ -388,6 +384,13 @@ async function postApi(path, payload) {
   }
 
   throw lastError || new Error('Request failed');
+}
+
+function getApiBases() {
+  const configuredBase = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
+  if (configuredBase) return [configuredBase];
+
+  return import.meta.env.DEV ? [''] : [];
 }
 
 function initChat() {
@@ -483,10 +486,10 @@ function appendTestimonial(review) {
     '<div class="testimonial-card glass">' +
     '<div class="quote-icon">"</div>' +
     stars +
-    '<p>"' + review.text + '"</p>' +
+    '<p>"' + escapeHtml(review.text) + '"</p>' +
     '<div class="client-info">' +
-    '<h4>' + review.name + '</h4>' +
-    '<span>' + review.role + '</span>' +
+    '<h4>' + escapeHtml(review.name) + '</h4>' +
+    '<span>' + escapeHtml(review.role) + '</span>' +
     '</div>' +
     '</div>';
 
@@ -504,4 +507,13 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
   window.setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }

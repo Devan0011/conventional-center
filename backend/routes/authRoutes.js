@@ -1,50 +1,75 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { getSupabase, handleSupabaseError } = require('../lib/supabase');
+const { toUser } = require('../lib/serializers');
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ msg: 'User already exists' });
+    const supabase = getSupabase();
+
+    const { data: existingUser, error: existingError } = await supabase
+      .from('app_users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    handleSupabaseError(existingError);
+    if (existingUser) return res.status(400).json({ msg: 'User already exists' });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    user = new User({ name, email, password: hashedPassword });
-    await user.save();
+    const { data: user, error } = await supabase
+      .from('app_users')
+      .insert({ name, email, password: hashedPassword })
+      .select('id, name, email, role, created_at, updated_at')
+      .single();
 
-    const payload = { user: { id: user.id, role: user.role } };
-    jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' }, (err, token) => {
-      if (err) throw err;
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-    });
+    handleSupabaseError(error);
+
+    const apiUser = toUser(user);
+    const token = signToken(apiUser.id, apiUser.role);
+    res.json({ token, user: apiUser });
   } catch (err) {
-    res.status(500).send('Server error');
+    next(err);
   }
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    let user = await User.findOne({ email });
+    const supabase = getSupabase();
+
+    const { data: user, error } = await supabase
+      .from('app_users')
+      .select('id, name, email, password, role, created_at, updated_at')
+      .eq('email', email)
+      .maybeSingle();
+
+    handleSupabaseError(error);
     if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
-    const payload = { user: { id: user.id, role: user.role } };
-    jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' }, (err, token) => {
-      if (err) throw err;
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-    });
+    const token = signToken(user.id, user.role);
+    res.json({ token, user: toUser(user) });
   } catch (err) {
-    res.status(500).send('Server error');
+    next(err);
   }
 });
+
+function signToken(id, role) {
+  return jwt.sign(
+    { user: { id, role } },
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: '1d' },
+  );
+}
 
 module.exports = router;

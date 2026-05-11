@@ -8,6 +8,5 @@ const dist = resolve(root, 'dist');
 await mkdir(dist, { recursive: true });
 
 await Promise.all([
-  copyFile(resolve(root, 'admin.html'), resolve(dist, 'admin.html')),
   copyFile(resolve(root, 'style.css'), resolve(dist, 'style.css')),
 ]);
