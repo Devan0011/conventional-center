@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aether Grand - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+      body {
+        background-color: var(--bg-main);
+        margin: 0;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 250px;
+        background: rgba(15, 23, 42, 0.8);
+        border-right: 1px solid var(--glass-border);
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .sidebar h2 {
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+        color: var(--primary);
+      }
+      .sidebar ul {
+        list-style: none;
+        padding: 0;
+      }
+      .sidebar li {
+        margin-bottom: 1rem;
+      }
+      .sidebar a {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 1.1rem;
+        transition: color 0.3s;
+      }
+      .sidebar a:hover, .sidebar a.active {
+        color: var(--secondary);
+      }
+      .main-content {
+        flex: 1;
+        padding: 2rem;
+        overflow-y: auto;
+      }
+      .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+      }
+      .stat-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+      .stat-card {
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .stat-card h3 {
+        font-size: 2rem;
+        color: var(--primary);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+      th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      th {
+        color: var(--secondary);
+      }
+      .status-badge {
+        padding: 0.3rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .status-pending { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+      .status-confirmed { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+      .status-cancelled, .status-rejected { background: rgba(220, 53, 69, 0.18); color: #dc3545; }
+      .status-submitted, .status-reviewing, .status-proposal_sent, .status-accepted { background: rgba(20, 51, 189, 0.14); color: var(--primary); }
+      .table-shell {
+        padding: 1.5rem;
+        border-radius: 15px;
+      }
+      .error-text {
+        color: #dc3545;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar glass">
+      <h2>Aether Admin</h2>
+      <ul>
+        <li><a href="#" class="active" data-view="dashboard" id="nav-dashboard">Dashboard</a></li>
+        <li><a href="#" data-view="bookings" id="nav-bookings">Bookings</a></li>
+        <li><a href="#" data-view="venues" id="nav-venues">Venues</a></li>
+        <li><a href="#" data-view="rfps" id="nav-rfps">RFPs</a></li>
+        <li style="margin-top: auto;"><a href="/" class="btn-outline" style="display:inline-block; padding: 0.5rem 1rem; text-align:center; border-radius:10px; width:100%;">Exit to Site</a></li>
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="dashboard-header">
+        <h1>Overview</h1>
+        <button class="btn btn-primary btn-sm" id="generate-report" type="button">Generate Report</button>
+      </div>
+
+      <div class="stat-cards">
+        <div class="stat-card glass">
+          <p>Total Bookings</p>
+          <h3 id="stat-bookings">--</h3>
+        </div>
+        <div class="stat-card glass">
+          <p>Active Venues</p>
+          <h3 id="stat-venues">--</h3>
+        </div>
+        <div class="stat-card glass">
+          <p>Pending RFPs</p>
+          <h3 id="stat-rfps">--</h3>
+        </div>
+      </div>
+
+      <div class="glass table-shell">
+        <h2 id="table-title" style="margin-bottom: 1rem;">Recent Bookings</h2>
+        <table id="bookings-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Venue</th>
+              <th>Event Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted);">Loading bookings...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="module">
+      const state = {
+        view: 'dashboard',
+        bookings: [],
+        venues: [],
+        rfps: [],
+      };
+
+      const columns = {
+        bookings: ['ID', 'User', 'Venue', 'Event Date', 'Status'],
+        venues: ['ID', 'Venue', 'Capacity', 'Price/Day', 'Status'],
+        rfps: ['ID', 'Organization', 'Contact', 'Event Type', 'Status'],
+      };
+
+      async function fetchApi(path) {
+        const bases = window.AETHER_API_URL
+          ? [window.AETHER_API_URL.replace(/\/$/, '')]
+          : ['', 'http://localhost:5000'];
+
+        let lastError;
+        for (const base of bases) {
+          try {
+            const response = await fetch(`${base}${path}`);
+            if (response.ok) return response.json();
+            lastError = new Error(`API returned ${response.status}`);
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error('API unavailable');
+      }
+
+      async function fetchData() {
+        const tbody = document.querySelector('#bookings-table tbody');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading data...</td></tr>';
+
+        try {
+          const [bookings, venues, rfps] = await Promise.all([
+            fetchApi('/api/bookings'),
+            fetchApi('/api/venues'),
+            fetchApi('/api/rfps'),
+          ]);
+
+          state.bookings = Array.isArray(bookings) ? bookings : [];
+          state.venues = Array.isArray(venues) ? venues : [];
+          state.rfps = Array.isArray(rfps) ? rfps : [];
+          updateStats();
+          renderTable();
+        } catch (err) {
+          console.error('Error fetching admin data:', err);
+          document.getElementById('stat-bookings').innerText = '0';
+          document.getElementById('stat-venues').innerText = '0';
+          document.getElementById('stat-rfps').innerText = '0';
+          tbody.innerHTML = '<tr><td colspan="5" class="error-text" style="text-align: center;">Backend API unavailable. Start the backend on port 5000 or set window.AETHER_API_URL.</td></tr>';
+        }
+      }
+
+      function updateStats() {
+        document.getElementById('stat-bookings').innerText = state.bookings.length;
+        document.getElementById('stat-venues').innerText = state.venues.length;
+        document.getElementById('stat-rfps').innerText = state.rfps.filter((rfp) => ['submitted', 'reviewing'].includes(rfp.status)).length;
+      }
+
+      function renderTable() {
+        const view = state.view === 'dashboard' ? 'bookings' : state.view;
+        const title = state.view === 'dashboard' ? 'Recent Bookings' : view.charAt(0).toUpperCase() + view.slice(1);
+        const table = document.getElementById('bookings-table');
+        const tbody = table.querySelector('tbody');
+        const theadRow = table.querySelector('thead tr');
+        const rows = (state[view] || []).slice(0, state.view === 'dashboard' ? 5 : 25);
+
+        document.getElementById('table-title').innerText = title;
+        theadRow.innerHTML = columns[view].map((col) => `<th>${col}</th>`).join('');
+
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No ${view} found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map((row) => renderRow(view, row)).join('');
+      }
+
+      function renderRow(view, row) {
+        if (view === 'venues') {
+          return `
+            <tr>
+              <td>${shortId(row._id)}</td>
+              <td>${escapeHtml(row.name || 'Untitled Venue')}</td>
+              <td>${formatNumber(row.capacity)}</td>
+              <td>${formatMoney(row.pricePerDay)}</td>
+              <td>${statusBadge(row.status || 'available')}</td>
+            </tr>
+          `;
+        }
+
+        if (view === 'rfps') {
+          return `
+            <tr>
+              <td>${shortId(row._id)}</td>
+              <td>${escapeHtml(row.organization || 'Unknown')}</td>
+              <td>${escapeHtml(row.contactName || 'Unknown')}</td>
+              <td>${escapeHtml(row.eventType || 'Event')}</td>
+              <td>${statusBadge(row.status || 'submitted')}</td>
+            </tr>
+          `;
+        }
+
+        return `
+          <tr>
+            <td>${shortId(row._id)}</td>
+            <td>${escapeHtml(row.user?.name || 'Unknown User')}</td>
+            <td>${escapeHtml(row.venue?.name || 'Unknown Venue')}</td>
+            <td>${formatDate(row.dates?.startDate)}</td>
+            <td>${statusBadge(row.status || 'pending')}</td>
+          </tr>
+        `;
+      }
+
+      function statusBadge(status) {
+        const safe = String(status).toLowerCase().replace(/[^a-z_]/g, '');
+        return `<span class="status-badge status-${safe}">${escapeHtml(String(status).replace(/_/g, ' ').toUpperCase())}</span>`;
+      }
+
+      function shortId(id) {
+        return id ? `${String(id).slice(0, 6)}...` : '--';
+      }
+
+      function formatDate(value) {
+        const date = value ? new Date(value) : null;
+        return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : '--';
+      }
+
+      function formatNumber(value) {
+        return Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+      }
+
+      function formatMoney(value) {
+        return Number.isFinite(Number(value)) ? `Rs. ${Number(value).toLocaleString()}` : '--';
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#039;');
+      }
+
+      function generateReport() {
+        const rows = [
+          ['Metric', 'Value'],
+          ['Total Bookings', state.bookings.length],
+          ['Active Venues', state.venues.length],
+          ['Pending RFPs', state.rfps.filter((rfp) => ['submitted', 'reviewing'].includes(rfp.status)).length],
+        ];
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `aether-grand-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      document.querySelectorAll('[data-view]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          state.view = link.dataset.view;
+          document.querySelectorAll('[data-view]').forEach((item) => item.classList.remove('active'));
+          link.classList.add('active');
+          renderTable();
+        });
+      });
+
+      document.getElementById('generate-report').addEventListener('click', generateReport);
+      document.addEventListener('DOMContentLoaded', fetchData);
+    </script>
+  </body>
+</html>
