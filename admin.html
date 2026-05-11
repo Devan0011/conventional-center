@@ -53,6 +53,13 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 2rem;
+        gap: 1rem;
+      }
+      .header-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
       .stat-cards {
         display: grid;
@@ -99,6 +106,47 @@
       .error-text {
         color: #dc3545;
       }
+      .admin-alert {
+        display: none;
+        margin-bottom: 1.25rem;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid rgba(220, 53, 69, 0.35);
+        background: rgba(220, 53, 69, 0.1);
+        color: #ffb4b4;
+      }
+      .admin-alert.show {
+        display: block;
+      }
+      .muted-text {
+        color: var(--text-muted);
+      }
+      @media (max-width: 800px) {
+        body {
+          display: block;
+          height: auto;
+          min-height: 100vh;
+          overflow: auto;
+        }
+        .sidebar {
+          width: auto;
+          padding: 1rem;
+        }
+        .main-content {
+          padding: 1rem;
+        }
+        .dashboard-header,
+        .header-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .stat-cards {
+          grid-template-columns: 1fr;
+        }
+        .table-shell {
+          overflow-x: auto;
+        }
+      }
     </style>
   </head>
   <body>
@@ -118,8 +166,13 @@
     <div class="main-content">
       <div class="dashboard-header">
         <h1>Overview</h1>
-        <button class="btn btn-primary btn-sm" id="generate-report" type="button">Generate Report</button>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" id="refresh-data" type="button">Refresh</button>
+          <button class="btn btn-primary btn-sm" id="generate-report" type="button">Generate Report</button>
+        </div>
       </div>
+
+      <div class="admin-alert" id="admin-alert" role="status" aria-live="polite"></div>
 
       <div class="stat-cards">
         <div class="stat-card glass">
@@ -173,12 +226,20 @@
 
       async function fetchApi(path) {
         const bases = getApiBases();
+        if (bases.length === 0) {
+          throw new Error('No API URL configured. Set VITE_API_URL to your deployed backend URL.');
+        }
 
         let lastError;
         for (const base of bases) {
           try {
             const response = await fetch(`${base}${path}`);
-            if (response.ok) return response.json();
+            const contentType = response.headers.get('content-type') || '';
+            if (response.ok && contentType.includes('application/json')) return response.json();
+            if (response.ok) {
+              lastError = new Error(`API returned non-JSON response from ${base || 'same origin'}`);
+              continue;
+            }
             lastError = new Error(`API returned ${response.status}`);
           } catch (error) {
             lastError = error;
@@ -205,18 +266,43 @@
             fetchApi('/api/rfps'),
           ]);
 
-          state.bookings = Array.isArray(bookings) ? bookings : [];
-          state.venues = Array.isArray(venues) ? venues : [];
-          state.rfps = Array.isArray(rfps) ? rfps : [];
+          state.bookings = Array.isArray(bookings) ? bookings.map(normalizeBooking) : [];
+          state.venues = Array.isArray(venues) ? venues.map(normalizeVenue) : [];
+          state.rfps = Array.isArray(rfps) ? rfps.map(normalizeRfp) : [];
+          showAlert('');
           updateStats();
           renderTable();
         } catch (err) {
           console.error('Error fetching admin data:', err);
+          loadLocalFallbackData();
           document.getElementById('stat-bookings').innerText = '0';
           document.getElementById('stat-venues').innerText = '0';
-          document.getElementById('stat-rfps').innerText = '0';
-          tbody.innerHTML = '<tr><td colspan="5" class="error-text" style="text-align: center;">Backend API unavailable. Start the backend on port 5000 for local dev or set VITE_API_URL before deployment.</td></tr>';
+          document.getElementById('stat-rfps').innerText = state.rfps.length;
+          showAlert(`${err.message} Local saved RFP requests are shown when available.`);
+          renderTable();
         }
+      }
+
+      function loadLocalFallbackData() {
+        state.bookings = [];
+        state.venues = [];
+        state.rfps = getLocalRfps().map(normalizeRfp);
+        state.view = state.view === 'dashboard' ? 'rfps' : state.view;
+      }
+
+      function getLocalRfps() {
+        try {
+          return JSON.parse(localStorage.getItem('aetherRfpRequests') || '[]');
+        } catch {
+          return [];
+        }
+      }
+
+      function showAlert(message) {
+        const alert = document.getElementById('admin-alert');
+        if (!alert) return;
+        alert.textContent = message;
+        alert.classList.toggle('show', Boolean(message));
       }
 
       function updateStats() {
@@ -226,8 +312,8 @@
       }
 
       function renderTable() {
-        const view = state.view === 'dashboard' ? 'bookings' : state.view;
-        const title = state.view === 'dashboard' ? 'Recent Bookings' : view.charAt(0).toUpperCase() + view.slice(1);
+        const view = getCurrentTableView();
+        const title = state.view === 'dashboard' ? getDashboardTitle(view) : formatViewTitle(view);
         const table = document.getElementById('bookings-table');
         const tbody = table.querySelector('tbody');
         const theadRow = table.querySelector('thead tr');
@@ -242,6 +328,21 @@
         }
 
         tbody.innerHTML = rows.map((row) => renderRow(view, row)).join('');
+      }
+
+      function getCurrentTableView() {
+        if (state.view !== 'dashboard') return state.view;
+        if (state.bookings.length > 0) return 'bookings';
+        if (state.rfps.length > 0) return 'rfps';
+        return 'bookings';
+      }
+
+      function getDashboardTitle(view) {
+        return view === 'rfps' ? 'Recent RFPs' : 'Recent Bookings';
+      }
+
+      function formatViewTitle(view) {
+        return view === 'rfps' ? 'RFPs' : view.charAt(0).toUpperCase() + view.slice(1);
       }
 
       function renderRow(view, row) {
@@ -311,6 +412,36 @@
           .replaceAll("'", '&#039;');
       }
 
+      function normalizeBooking(row) {
+        return {
+          _id: row._id || row.id,
+          user: row.user || { name: row.userName || row.user_name || 'Unknown User' },
+          venue: row.venue || { name: row.venueName || row.venue_name || 'Unknown Venue' },
+          dates: row.dates || { startDate: row.startDate || row.start_date },
+          status: row.status || 'pending',
+        };
+      }
+
+      function normalizeVenue(row) {
+        return {
+          _id: row._id || row.id,
+          name: row.name,
+          capacity: row.capacity,
+          pricePerDay: row.pricePerDay ?? row.price_per_day,
+          status: row.status || 'available',
+        };
+      }
+
+      function normalizeRfp(row) {
+        return {
+          _id: row._id || row.id || row.createdAt || row.created_at,
+          organization: row.organization,
+          contactName: row.contactName || row.contact_name,
+          eventType: row.eventType || row.event_type,
+          status: row.status || 'submitted',
+        };
+      }
+
       function generateReport() {
         const rows = [
           ['Metric', 'Value'],
@@ -339,6 +470,7 @@
       });
 
       document.getElementById('generate-report').addEventListener('click', generateReport);
+      document.getElementById('refresh-data').addEventListener('click', fetchData);
       document.addEventListener('DOMContentLoaded', fetchData);
     </script>
   </body>
