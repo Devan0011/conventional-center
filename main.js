@@ -135,8 +135,8 @@ function initSwipers() {
       disableOnInteraction: false,
     },
     breakpoints: {
-      768: { slidesPerView: 2 },
-      1024: { slidesPerView: 3 },
+      820: { slidesPerView: 2 },
+      1180: { slidesPerView: 3 },
     },
   });
 
@@ -155,8 +155,8 @@ function initSwipers() {
       disableOnInteraction: false,
     },
     breakpoints: {
-      768: { slidesPerView: 2 },
-      1024: { slidesPerView: 3 },
+      820: { slidesPerView: 2 },
+      1180: { slidesPerView: 3 },
     },
   });
 }

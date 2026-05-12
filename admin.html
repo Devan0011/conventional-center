@@ -80,6 +80,7 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 1rem;
+        min-width: 640px;
       }
       th, td {
         padding: 1rem;
@@ -102,6 +103,7 @@
       .table-shell {
         padding: 1.5rem;
         border-radius: 15px;
+        overflow-x: auto;
       }
       .error-text {
         color: #dc3545;
@@ -132,6 +134,18 @@
           width: auto;
           padding: 1rem;
         }
+        .sidebar ul {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.65rem;
+          align-items: center;
+        }
+        .sidebar li {
+          margin-bottom: 0;
+        }
+        .sidebar li:last-child {
+          flex-basis: 100%;
+        }
         .main-content {
           padding: 1rem;
         }
@@ -143,8 +157,23 @@
         .stat-cards {
           grid-template-columns: 1fr;
         }
-        .table-shell {
-          overflow-x: auto;
+      }
+      @media (max-width: 480px) {
+        .main-content {
+          padding: 0.75rem;
+        }
+        .dashboard-header h1 {
+          font-size: 2rem;
+        }
+        .header-actions .btn {
+          width: 100%;
+        }
+        .table-shell,
+        .stat-card {
+          padding: 1rem;
+        }
+        th, td {
+          padding: 0.75rem;
         }
       }
     </style>
