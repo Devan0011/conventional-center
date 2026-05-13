@@ -15,8 +15,8 @@ let lenis;
 let testimonialSwiper;
 
 document.addEventListener('DOMContentLoaded', () => {
-  initApp();
   runPreloader();
+  try { initApp(); } catch (e) { console.error('initApp failed:', e); }
 });
 
 function runPreloader() {
@@ -28,40 +28,87 @@ function runPreloader() {
     return;
   }
 
+  // Disable scroll during preloader
+  document.body.style.overflow = 'hidden';
+  if (lenis) lenis.stop();
+
+  const minDuration = 2500;
+  const startedAt = Date.now();
+
   let progress = 0;
   let hidden = false;
+  let interval;
+
   const hidePreloader = () => {
     if (hidden) return;
     hidden = true;
+
+    if (interval) window.clearInterval(interval);
+    
     preloader.setAttribute('aria-hidden', 'true');
-    gsap.to(preloader, {
-      yPercent: -100,
-      duration: 0.45,
-      ease: 'power4.inOut',
-      onComplete: () => {
+    
+    try {
+      const tl = gsap.timeline({
+        onComplete: () => {
+          preloader.style.display = 'none';
+          document.body.style.overflow = '';
+          if (lenis) lenis.start();
+          AOS.refresh();
+        }
+      });
+      tl.to(preloader, {
+        yPercent: -100,
+        duration: 0.8,
+        ease: 'power4.inOut',
+      });
+    } catch {
+      preloader.style.transition = 'transform 0.8s ease-in-out';
+      preloader.style.transform = 'translateY(-100%)';
+      window.setTimeout(() => {
         preloader.style.display = 'none';
-      },
-    });
+        document.body.style.overflow = '';
+        if (lenis) lenis.start();
+        AOS.refresh();
+      }, 800);
+    }
   };
 
-  const interval = window.setInterval(() => {
-    progress = Math.min(progress + Math.floor(Math.random() * 10) + 1, 100);
+  interval = window.setInterval(() => {
+    // Slower progress as it gets closer to 100 to feel more "real"
+    const increment = progress < 70 
+      ? Math.floor(Math.random() * 12) + 2 
+      : Math.floor(Math.random() * 4) + 1;
+    
+    progress = Math.min(progress + increment, 99);
     loaderPercent.textContent = `${progress}%`;
     loaderBar.style.width = `${progress}%`;
+  }, 100);
 
-    if (progress === 100) {
-      window.clearInterval(interval);
-      window.setTimeout(hidePreloader, 150);
+  // Force finish on window load or after a timeout
+  const finishLoader = () => {
+    if (hidden) return;
+
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < minDuration) {
+      window.setTimeout(finishLoader, minDuration - elapsed);
+      return;
     }
-  }, 90);
 
-  window.setTimeout(() => {
     progress = 100;
     loaderPercent.textContent = '100%';
     loaderBar.style.width = '100%';
     window.clearInterval(interval);
-    hidePreloader();
-  }, 3200);
+    window.setTimeout(hidePreloader, 400);
+  };
+
+  const onLoad = () => {
+    window.removeEventListener('load', onLoad);
+    finishLoader();
+  };
+  window.addEventListener('load', onLoad);
+  
+  // Fail-safe timeout
+  window.setTimeout(finishLoader, 4000);
 }
 
 function initApp() {
@@ -114,8 +161,6 @@ function initAos() {
 }
 
 function initSwipers() {
-  Swiper.use([Navigation, Pagination, Autoplay]);
-
   new Swiper('.venue-slider', {
     modules: [Navigation, Pagination, Autoplay],
     slidesPerView: 1,
@@ -135,8 +180,14 @@ function initSwipers() {
       disableOnInteraction: false,
     },
     breakpoints: {
-      820: { slidesPerView: 2 },
-      1180: { slidesPerView: 3 },
+      768: {
+        slidesPerView: 2,
+        spaceBetween: 24,
+      },
+      1024: {
+        slidesPerView: 2.5,
+        spaceBetween: 30,
+      },
     },
   });
 
@@ -155,16 +206,24 @@ function initSwipers() {
       disableOnInteraction: false,
     },
     breakpoints: {
-      820: { slidesPerView: 2 },
-      1180: { slidesPerView: 3 },
+      768: {
+        slidesPerView: 2,
+        spaceBetween: 24,
+      },
+      1024: {
+        slidesPerView: 3,
+        spaceBetween: 30,
+      },
     },
   });
 }
 
 function initNavbar() {
   const navbar = document.querySelector('.navbar');
-  const menuToggle = document.querySelector('.menu-toggle');
-  const navLinks = document.querySelector('.nav-links');
+  const menuToggle = document.getElementById('menu-toggle');
+  const navLinks = id('nav-links');
+
+  function id(name) { return document.getElementById(name); }
 
   const updateScrolled = () => {
     navbar?.classList.toggle('scrolled', window.scrollY > 50);
@@ -174,15 +233,17 @@ function initNavbar() {
   window.addEventListener('scroll', updateScrolled, { passive: true });
 
   menuToggle?.addEventListener('click', () => {
-    const open = navLinks?.classList.toggle('open') ?? false;
-    menuToggle.classList.toggle('open', open);
-    menuToggle.setAttribute('aria-expanded', String(open));
+    const isExpanded = menuToggle.classList.toggle('active');
+    navLinks?.classList.toggle('active');
+    document.body.classList.toggle('menu-open');
+    menuToggle.setAttribute('aria-expanded', isExpanded);
   });
 
-  document.querySelectorAll('.nav-links a').forEach((link) => {
+  navLinks?.querySelectorAll('a, button').forEach(link => {
     link.addEventListener('click', () => {
-      navLinks?.classList.remove('open');
-      menuToggle?.classList.remove('open');
+      menuToggle?.classList.remove('active');
+      navLinks?.classList.remove('active');
+      document.body.classList.remove('menu-open');
       menuToggle?.setAttribute('aria-expanded', 'false');
     });
   });

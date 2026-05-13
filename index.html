@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Aether Grand Convention Center</title>
     <link rel="stylesheet" href="/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -20,6 +20,21 @@
       </div>
     </div>
 
+    <script>
+      (function() {
+        var el = document.getElementById('preloader');
+        if (!el) return;
+        var fallback = setTimeout(function() {
+          if (el.style.display === 'none') return;
+          el.style.transition = 'opacity 0.5s';
+          el.style.opacity = '0';
+          el.setAttribute('aria-hidden', 'true');
+          setTimeout(function() { el.style.display = 'none'; }, 500);
+        }, 8000);
+        el._preloaderFallback = fallback;
+      })();
+    </script>
+
     <!-- Navigation -->
     <nav class="navbar glass">
       <div class="nav-brand">
@@ -28,17 +43,21 @@
         </span>
         <span class="brand-name">Aether Grand</span>
       </div>
-      <div class="nav-links">
+      <div class="nav-links" id="nav-links">
         <a href="#home">Home</a>
         <a href="#venues">Venues</a>
         <a href="#events">Events</a>
+        <a href="#gallery">Gallery</a>
         <a href="#about">About</a>
         <a href="#contact">Contact</a>
+        <button class="btn btn-primary mobile-only-btn" data-scroll-target="#book">Book Now</button>
       </div>
       <div class="nav-actions">
-        <button class="btn btn-primary" data-scroll-target="#book">Book Now</button>
-        <button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">
-          <span></span><span></span><span></span>
+        <button class="btn btn-primary nav-book-btn" data-scroll-target="#book">Book Now</button>
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle Menu">
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
       </div>
     </nav>
@@ -60,47 +79,47 @@
             </div>
           </div>
 
-          <div class="hero-depth" aria-hidden="true">
-            <div class="depth-ambient-light"></div>
-            <div class="depth-floor"></div>
+          <div class="hero-depth">
+            <div class="depth-ambient-light" aria-hidden="true"></div>
+            <div class="depth-floor" aria-hidden="true"></div>
             
-            <div class="depth-orb orb-1"></div>
-            <div class="depth-orb orb-2"></div>
-            <div class="depth-orb orb-3"></div>
+            <div class="depth-orb orb-1" aria-hidden="true"></div>
+            <div class="depth-orb orb-2" aria-hidden="true"></div>
+            <div class="depth-orb orb-3" aria-hidden="true"></div>
 
             <div class="depth-panel panel-main">
-              <div class="panel-glare"></div>
-              <div class="panel-icon"></div>
+              <div class="panel-glare" aria-hidden="true"></div>
+              <div class="panel-icon" aria-hidden="true"></div>
               <span>Grand Sapphire Ballroom</span>
-              <div class="panel-value"><strong>5,000</strong><span class="trend up">↗</span></div>
+              <div class="panel-value"><strong>5,000</strong><span class="trend up" aria-label="capacity trend up">↗</span></div>
               <small>guest capacity</small>
             </div>
             <div class="depth-panel panel-side">
-              <div class="panel-glare"></div>
-              <div class="panel-icon"></div>
+              <div class="panel-glare" aria-hidden="true"></div>
+              <div class="panel-icon" aria-hidden="true"></div>
               <span>Expo-ready floor</span>
-              <div class="panel-value"><strong>10k</strong><span class="trend up">↗</span></div>
+              <div class="panel-value"><strong>10k</strong><span class="trend up" aria-label="visitor trend up">↗</span></div>
               <small>visitors</small>
             </div>
             <div class="depth-panel panel-top">
-              <div class="panel-glare"></div>
-              <div class="panel-icon"></div>
+              <div class="panel-glare" aria-hidden="true"></div>
+              <div class="panel-icon" aria-hidden="true"></div>
               <span>Hybrid production</span>
-              <div class="panel-value"><strong>24/7</strong><span class="pulse-dot"></span></div>
+              <div class="panel-value"><strong>24/7</strong><span class="pulse-dot" aria-label="status active"></span></div>
               <small>technical desk</small>
             </div>
             
-            <div class="depth-line line-one">
+            <div class="depth-line line-one" aria-hidden="true">
               <div class="line-glow"></div>
             </div>
-            <div class="depth-line line-two">
+            <div class="depth-line line-two" aria-hidden="true">
               <div class="line-glow"></div>
             </div>
-            <div class="depth-line line-three">
+            <div class="depth-line line-three" aria-hidden="true">
               <div class="line-glow"></div>
             </div>
             
-            <div class="depth-particles">
+            <div class="depth-particles" aria-hidden="true">
               <span style="--i:1;"></span>
               <span style="--i:2;"></span>
               <span style="--i:3;"></span>
